@@ -1,0 +1,12 @@
+{
+  "name": "microservicio-productos",
+  "version": "1.0.0",
+  "description": "Microservicio de productos",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

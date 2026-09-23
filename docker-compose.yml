@@ -1,0 +1,22 @@
+services:
+
+  productos:
+    build:
+      context: ./productos
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+
+  clientes:
+    build:
+      context: ./clientes
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+
+  pedidos:
+    build:
+      context: ./pedidos
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
