@@ -1,12 +1,13 @@
 {
   "name": "microservicio-clientes",
-  "version": "1.0.0",
-  "description": "Microservicio de clientes",
+  "version": "2.0.0",
+  "description": "Microservicio de clientes con MySQL",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "mysql2": "^3.11.0"
   }
 }

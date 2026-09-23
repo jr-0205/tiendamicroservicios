@@ -1,7 +1,7 @@
 {
   "name": "microservicio-productos",
-  "version": "1.0.0",
-  "description": "Microservicio de productos",
+  "version": "2.0.0",
+  "description": "Microservicio de productos con SQLite",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"

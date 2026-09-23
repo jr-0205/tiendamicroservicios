@@ -1,22 +1,100 @@
 services:
+  mysql-clientes:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-clientes_db}
+      MYSQL_USER: ${MYSQL_USER:-tienda}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tienda123}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_clientes_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD:-root123} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  mongo-pedidos:
+    image: mongo:8
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_pedidos_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
 
   productos:
     build:
       context: ./productos
       dockerfile: Dockerfile
+    environment:
+      DATABASE_PATH: /data/productos.db
     ports:
       - "3001:3001"
+    volumes:
+      - productos_sqlite_data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
 
   clientes:
     build:
       context: ./clientes
       dockerfile: Dockerfile
+    environment:
+      MYSQL_HOST: mysql-clientes
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-clientes_db}
+      MYSQL_USER: ${MYSQL_USER:-tienda}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tienda123}
     ports:
       - "3002:3002"
+    depends_on:
+      mysql-clientes:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
 
   pedidos:
     build:
       context: ./pedidos
       dockerfile: Dockerfile
+    environment:
+      MONGO_URL: mongodb://mongo-pedidos:27017
+      MONGO_DB: pedidos_db
+      CLIENTES_URL: http://clientes:3002
+      PRODUCTOS_URL: http://productos:3001
     ports:
       - "3003:3003"
+    depends_on:
+      mongo-pedidos:
+        condition: service_healthy
+      clientes:
+        condition: service_healthy
+      productos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  mysql_clientes_data:
+  productos_sqlite_data:
+  mongo_pedidos_data:
