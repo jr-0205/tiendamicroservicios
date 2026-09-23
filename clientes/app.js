@@ -4,7 +4,7 @@ const mysql = require("mysql2/promise");
 const app = express();
 app.use(express.json());
 
-const pool = mysql.createPool({
+const configMysql = {
   host: process.env.MYSQL_HOST || "mysql-clientes",
   port: Number(process.env.MYSQL_PORT || 3306),
   user: process.env.MYSQL_USER || "tienda",
@@ -12,7 +12,32 @@ const pool = mysql.createPool({
   database: process.env.MYSQL_DATABASE || "clientes_db",
   waitForConnections: true,
   connectionLimit: 10
-});
+};
+
+let pool;
+
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function conectarMysqlConReintentos(intentos = 30, esperaMs = 2000) {
+  for (let intento = 1; intento <= intentos; intento++) {
+    try {
+      const nuevoPool = mysql.createPool(configMysql);
+      await nuevoPool.query("SELECT 1");
+      console.log(`MySQL disponible (intento ${intento}/${intentos})`);
+      return nuevoPool;
+    } catch (error) {
+      console.log(
+        `Esperando MySQL (intento ${intento}/${intentos}): ${error.code || error.message}`
+      );
+
+      if (intento === intentos) {
+        throw error;
+      }
+
+      await esperar(esperaMs);
+    }
+  }
+}
 
 async function inicializarBaseDeDatos() {
   await pool.query(`
@@ -36,7 +61,11 @@ app.get("/health", async (req, res) => {
     await pool.query("SELECT 1");
     res.json({ servicio: "clientes", baseDeDatos: "mysql", estado: "ok" });
   } catch (error) {
-    res.status(503).json({ servicio: "clientes", estado: "error" });
+    res.status(503).json({
+      servicio: "clientes",
+      baseDeDatos: "mysql",
+      estado: "error"
+    });
   }
 });
 
@@ -45,6 +74,7 @@ app.get("/clientes", async (req, res) => {
     const [clientes] = await pool.query(
       "SELECT id, nombre, email, creado_en AS creadoEn FROM clientes ORDER BY id"
     );
+
     res.json(clientes);
   } catch (error) {
     console.error(error);
@@ -101,12 +131,14 @@ app.post("/clientes", async (req, res) => {
 
 async function iniciar() {
   try {
+    pool = await conectarMysqlConReintentos();
     await inicializarBaseDeDatos();
-    app.listen(3002, () => {
+
+    app.listen(3002, "0.0.0.0", () => {
       console.log("Microservicio Clientes + MySQL ejecutándose en puerto 3002");
     });
   } catch (error) {
-    console.error("No fue posible iniciar Clientes:", error);
+    console.error("No fue posible iniciar Clientes después de varios intentos:", error);
     process.exit(1);
   }
 }
